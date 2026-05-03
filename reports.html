@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Reports — RMS</title>
+  <link rel="stylesheet" href="css/styles.css"/>
+</head>
+<body>
+  <div id="app">
+    <div id="sidebar-placeholder"></div>
+    <main class="page-content">
+      <div class="page-header">
+        <h1>Reports & Analytics</h1>
+      </div>
+
+      <!-- Summary KPIs -->
+      <div class="stats-row" id="kpi-row"></div>
+
+      <!-- Charts grid -->
+      <div class="charts-grid">
+        <div class="card">
+          <div class="card-header">Revenue by Payment Mode</div>
+          <div class="card-body"><canvas id="modeChart"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-header">Top 5 Selling Items</div>
+          <div class="card-body"><canvas id="topItemsChart"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-header">Orders by Type</div>
+          <div class="card-body"><canvas id="orderTypeChart"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-header">Loyalty Tier Distribution</div>
+          <div class="card-body"><canvas id="loyaltyChart"></canvas></div>
+        </div>
+      </div>
+
+      <!-- Daily sales lookup -->
+      <div class="card">
+        <div class="card-header">Daily Sales Lookup</div>
+        <div class="card-body">
+          <div class="filter-bar">
+            <input type="date" id="sales-date" value="2024-09-01"/>
+            <button class="btn btn-primary" onclick="lookupDailySales()">Search</button>
+          </div>
+          <div id="daily-result"></div>
+        </div>
+      </div>
+
+      <!-- Low stock alert -->
+      <div class="card">
+        <div class="card-header">⚠ Low Stock Alert (below 40 units)</div>
+        <div class="card-body">
+          <table class="data-table">
+            <thead>
+              <tr><th>Ingredient</th><th>Available</th><th>Unit</th><th>Supplier</th><th>Restock Qty</th></tr>
+            </thead>
+            <tbody id="low-stock-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div id="toast"></div>
+  <script src="js/data.js"></script>
+  <script src="js/app.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    const PALETTE = ["#c8a96e","#3d6b4f","#8b4513","#2c4a6e","#6b3d6b","#4a6e6b","#6e4a2c"];
+
+    function renderKPIs() {
+      const s = Reports.getDashboardStats();
+      document.getElementById("kpi-row").innerHTML = `
+        <div class="stat-card"><div class="stat-label">Total Revenue</div><div class="stat-value">${Utils.formatCurrency(s.total_revenue)}</div></div>
+        <div class="stat-card"><div class="stat-label">Total Orders</div><div class="stat-value">${s.total_orders}</div></div>
+        <div class="stat-card"><div class="stat-label">Avg Order Value</div><div class="stat-value">${Utils.formatCurrency(s.avg_order_value)}</div></div>
+        <div class="stat-card"><div class="stat-label">Avg Rating</div><div class="stat-value">${s.avg_rating} ★</div></div>
+        <div class="stat-card"><div class="stat-label">Low Stock Items</div><div class="stat-value" style="color:#e05c5c">${s.low_stock_count}</div></div>
+      `;
+    }
+
+    function buildChart(id, type, labels, data, label) {
+      const ctx = document.getElementById(id).getContext("2d");
+      new Chart(ctx, {
+        type,
+        data: {
+          labels,
+          datasets: [{ label, data, backgroundColor: PALETTE, borderColor: PALETTE, borderWidth: 1, borderRadius: 6 }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: type === "pie" || type === "doughnut" } },
+          scales: (type === "pie" || type === "doughnut") ? {} : { y: { beginAtZero: true } }
+        }
+      });
+    }
+
+    function renderCharts() {
+      // Revenue by mode
+      const modeData = Reports.getRevenueByPaymentMode();
+      buildChart("modeChart", "bar", modeData.map(d => d.mode), modeData.map(d => d.revenue), "Revenue (₹)");
+
+      // Top 5 items
+      const items = Reports.getTopSellingItems(5);
+      buildChart("topItemsChart", "bar", items.map(i => i.item_name), items.map(i => i.units_sold), "Units Sold");
+
+      // Orders by type
+      const orders = Orders.getAll();
+      const types  = ["Dine-In","Takeaway","Delivery"];
+      buildChart("orderTypeChart", "doughnut",
+        types,
+        types.map(t => orders.filter(o => o.order_type === t).length),
+        "Orders"
+      );
+
+      // Loyalty tiers
+      const tiers = ["Gold","Silver","Bronze"];
+      buildChart("loyaltyChart", "pie",
+        tiers,
+        tiers.map(t => Customers.getAll().filter(c => Customers.getLoyaltyTier(c.customer_id) === t).length),
+        "Customers"
+      );
+    }
+
+    function renderLowStock() {
+      const items = Inventory.getLowStock();
+      document.getElementById("low-stock-tbody").innerHTML = items.length
+        ? items.map(i => `
+            <tr>
+              <td>${i.ingredient_name}</td>
+              <td style="color:#e05c5c;font-weight:600">${i.quantity_available}</td>
+              <td>${i.unit}</td>
+              <td>${i.supplier_name}</td>
+              <td>${100 - i.quantity_available}</td>
+            </tr>
+          `).join("")
+        : `<tr><td colspan="5" class="empty-state">All stock levels are sufficient.</td></tr>`;
+    }
+
+    function lookupDailySales() {
+      const date   = document.getElementById("sales-date").value;
+      const result = Reports.getDailySales(date);
+      const el     = document.getElementById("daily-result");
+      if (!result.orders.length) {
+        el.innerHTML = `<p class="empty-state">No orders found for ${date}.</p>`;
+        return;
+      }
+      el.innerHTML = `
+        <p><strong>Orders:</strong> ${result.total_orders} &nbsp;|&nbsp; <strong>Revenue:</strong> ${Utils.formatCurrency(result.total_revenue)}</p>
+        <table class="data-table">
+          <thead><tr><th>Order ID</th><th>Customer</th><th>Type</th><th>Amount</th><th>Mode</th></tr></thead>
+          <tbody>${result.orders.map(o => `
+            <tr>
+              <td>#${o.order_id}</td>
+              <td>${o.customer_name || "—"}</td>
+              <td>${o.order_type}</td>
+              <td>${o.amount ? Utils.formatCurrency(o.amount) : "Unpaid"}</td>
+              <td>${o.payment_mode}</td>
+            </tr>
+          `).join("")}</tbody>
+        </table>
+      `;
+    }
+
+    renderKPIs();
+    renderCharts();
+    renderLowStock();
+  </script>
+</body>
+</html>
