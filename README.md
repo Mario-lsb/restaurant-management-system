@@ -1,11 +1,6 @@
 # 🍽️ Restaurant Management System
 
-A front-end web application for managing restaurant operations — built as a mini project for **21CSC205P Database Management Systems** at SRM Institute of Science and Technology.
 
-**By:** Aditi Pathak (RA2411033010137) & Navya Agarwal (RA2411033010144)
-**Guide:** Dr. Arun Prasath S
-
----
 
 ## 🌐 Live Demo
 > https://<your-username>.github.io/restaurant-management-system
