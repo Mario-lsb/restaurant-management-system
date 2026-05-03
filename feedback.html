@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Feedback — RMS</title>
+  <link rel="stylesheet" href="css/styles.css"/>
+</head>
+<body>
+  <div id="app">
+    <div id="sidebar-placeholder"></div>
+    <main class="page-content">
+      <div class="page-header">
+        <h1>Customer Feedback</h1>
+        <button class="btn btn-primary" onclick="openModal()">+ Add Feedback</button>
+      </div>
+
+      <!-- Summary stats -->
+      <div class="stats-row" id="feedback-stats"></div>
+
+      <!-- Per-customer summary -->
+      <div class="card">
+        <div class="card-header">Customer Summary</div>
+        <div class="card-body">
+          <table class="data-table">
+            <thead>
+              <tr><th>Customer</th><th>Reviews</th><th>Avg Rating</th></tr>
+            </thead>
+            <tbody id="summary-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- All feedback -->
+      <div class="card">
+        <div class="card-header">All Reviews</div>
+        <div class="card-body">
+          <div id="feedback-cards"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Add Feedback Modal -->
+  <div class="modal-overlay" id="feedback-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Submit Feedback</h2>
+        <button class="modal-close" onclick="closeModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Customer</label>
+          <select id="fb-customer"></select>
+        </div>
+        <div class="form-group">
+          <label>Order</label>
+          <select id="fb-order"><option value="">— Select customer first —</option></select>
+        </div>
+        <div class="form-group">
+          <label>Rating</label>
+          <div class="star-rating" id="star-rating">
+            <span class="star" data-val="1">★</span>
+            <span class="star" data-val="2">★</span>
+            <span class="star" data-val="3">★</span>
+            <span class="star" data-val="4">★</span>
+            <span class="star" data-val="5">★</span>
+          </div>
+          <input type="hidden" id="fb-rating" value="0"/>
+        </div>
+        <div class="form-group">
+          <label>Comments</label>
+          <textarea id="fb-comments" rows="3" placeholder="Share your experience..."></textarea>
+        </div>
+        <div id="fb-error" class="error-msg"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="submitFeedback()">Submit</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+  <script src="js/data.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    function starsHtml(rating) {
+      return Array.from({length: 5}, (_, i) =>
+        `<span style="color:${i < rating ? '#c8a96e' : '#ccc'}">★</span>`
+      ).join("");
+    }
+
+    function renderStats() {
+      const avg = Feedback.getAverageRating();
+      const all = Feedback.getAll();
+      document.getElementById("feedback-stats").innerHTML = `
+        <div class="stat-card">
+          <div class="stat-label">Total Reviews</div>
+          <div class="stat-value">${all.length}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Average Rating</div>
+          <div class="stat-value">${avg} / 5</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">5-Star Reviews</div>
+          <div class="stat-value">${all.filter(f => f.rating === 5).length}</div>
+        </div>
+      `;
+    }
+
+    function renderSummary() {
+      const summary = Feedback.getSummaryByCustomer().filter(s => s.total_reviews > 0);
+      document.getElementById("summary-tbody").innerHTML = summary.length
+        ? summary.map(s => `
+            <tr>
+              <td>${s.customer_name}</td>
+              <td>${s.total_reviews}</td>
+              <td>${starsHtml(Math.round(s.avg_rating))} (${s.avg_rating})</td>
+            </tr>
+          `).join("")
+        : `<tr><td colspan="3" class="empty-state">No feedback yet.</td></tr>`;
+    }
+
+    function renderCards() {
+      const reviews = Feedback.getWithCustomer().sort((a,b) => b.feedback_id - a.feedback_id);
+      document.getElementById("feedback-cards").innerHTML = reviews.length
+        ? reviews.map(f => `
+            <div class="feedback-card">
+              <div class="feedback-header">
+                <strong>${f.customer_name}</strong>
+                <span>${starsHtml(f.rating)}</span>
+                <span class="feedback-date">${f.feedback_date}</span>
+              </div>
+              <p>${f.comments || "<em>No comment</em>"}</p>
+            </div>
+          `).join("")
+        : `<p class="empty-state">No feedback yet.</p>`;
+    }
+
+    function openModal() {
+      // Populate customers
+      const sel = document.getElementById("fb-customer");
+      sel.innerHTML = Customers.getAll().map(c =>
+        `<option value="${c.customer_id}">${c.name}</option>`
+      ).join("");
+      loadOrdersForCustomer(parseInt(sel.value));
+      document.getElementById("fb-rating").value = "0";
+      document.querySelectorAll(".star").forEach(s => s.classList.remove("active"));
+      document.getElementById("fb-comments").value = "";
+      document.getElementById("fb-error").textContent = "";
+      document.getElementById("feedback-modal").classList.add("active");
+    }
+    function closeModal() { document.getElementById("feedback-modal").classList.remove("active"); }
+
+    function loadOrdersForCustomer(customer_id) {
+      const orders = Orders.getAll().filter(o => o.customer_id === customer_id && o.status === "Completed");
+      const sel = document.getElementById("fb-order");
+      sel.innerHTML = orders.length
+        ? orders.map(o => `<option value="${o.order_id}">#${o.order_id} (${Utils.formatDate(o.order_date)})</option>`).join("")
+        : `<option value="">No completed orders</option>`;
+    }
+
+    document.getElementById("fb-customer")?.addEventListener("change", function() {
+      loadOrdersForCustomer(parseInt(this.value));
+    });
+
+    // Star rating interaction
+    document.querySelectorAll(".star").forEach(star => {
+      star.addEventListener("click", () => {
+        const val = parseInt(star.dataset.val);
+        document.getElementById("fb-rating").value = val;
+        document.querySelectorAll(".star").forEach((s, i) => {
+          s.classList.toggle("active", i < val);
+        });
+      });
+    });
+
+    function submitFeedback() {
+      const customer_id = parseInt(document.getElementById("fb-customer").value);
+      const order_id    = parseInt(document.getElementById("fb-order").value);
+      const rating      = parseInt(document.getElementById("fb-rating").value);
+      const comments    = document.getElementById("fb-comments").value.trim();
+      try {
+        Feedback.add({ customer_id, order_id, rating, comments });
+        closeModal();
+        renderAll();
+        Utils.showSuccess("Feedback submitted!");
+      } catch(e) {
+        document.getElementById("fb-error").textContent = e.message;
+      }
+    }
+
+    function renderAll() { renderStats(); renderSummary(); renderCards(); }
+    renderAll();
+  </script>
+</body>
+</html>
