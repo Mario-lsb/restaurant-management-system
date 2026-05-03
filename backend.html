@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Backend Panel</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <script src="js/data.js"></script>
+  <script src="js/app.js"></script>
+</head>
+
+<body>
+
+<div style="display:flex">
+
+  <div style="width:200px; padding:10px;">
+    <button onclick="showSection('payments')">Payments</button><br><br>
+    <button onclick="showSection('staff')">Staff</button><br><br>
+    <button onclick="showSection('feedback')">Feedback</button><br><br>
+    <button onclick="showSection('reports')">Reports</button>
+  </div>
+
+  <div style="flex:1; padding:20px;">
+
+    <div id="payments" class="section">
+
+    </div>
+
+    <div id="staff" class="section">
+
+    </div>
+
+    <div id="feedback" class="section">
+
+    </div>
+
+    <div id="reports" class="section">
+
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+function showSection(id) {
+  document.querySelectorAll('.section').forEach(sec => {
+    sec.style.display = 'none';
+  });
+  document.getElementById(id).style.display = 'block';
+}
+window.onload = () => showSection('payments');
+</script>
+
+</body>
+</html>
