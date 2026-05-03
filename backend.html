@@ -3,6 +3,10 @@
 <head>
   <title>Backend Panel</title>
   <link rel="stylesheet" href="css/styles.css">
+
+  <!-- IMPORTANT -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
   <script src="js/data.js"></script>
   <script src="js/app.js"></script>
 
@@ -42,36 +46,26 @@
 
 <div class="content">
 
-  <!-- PAYMENTS -->
   <div id="payments" class="section">
     <h1>Payments</h1>
     <div id="payment-stats"></div>
     <canvas id="revenueChart"></canvas>
-    <table id="payments-table">
-      <tbody id="payments-tbody"></tbody>
-    </table>
+    <table><tbody id="payments-tbody"></tbody></table>
   </div>
 
-  <!-- STAFF -->
   <div id="staff" class="section">
     <h1>Staff</h1>
     <select id="role-filter" onchange="renderTable()"></select>
-    <table>
-      <tbody id="staff-tbody"></tbody>
-    </table>
+    <table><tbody id="staff-tbody"></tbody></table>
   </div>
 
-  <!-- FEEDBACK -->
   <div id="feedback" class="section">
     <h1>Feedback</h1>
     <div id="feedback-stats"></div>
-    <table>
-      <tbody id="summary-tbody"></tbody>
-    </table>
+    <table><tbody id="summary-tbody"></tbody></table>
     <div id="feedback-cards"></div>
   </div>
 
-  <!-- REPORTS -->
   <div id="reports" class="section">
     <h1>Reports</h1>
     <div id="kpi-row"></div>
@@ -89,15 +83,23 @@ function showSection(id) {
     sec.style.display = 'none';
   });
   document.getElementById(id).style.display = 'block';
+
+  if (id === 'payments' && typeof renderPayments === "function") {
+    renderPayments();
+  }
+  if (id === 'staff' && typeof renderTable === "function") {
+    renderTable();
+  }
+  if (id === 'feedback' && typeof renderFeedback === "function") {
+    renderFeedback();
+  }
+  if (id === 'reports' && typeof renderReports === "function") {
+    renderReports();
+  }
 }
 
-// IMPORTANT: initialize after load
 window.onload = () => {
   showSection('payments');
-
-  // Call your existing JS render functions
-  if (typeof initPayments === "function") initPayments();
-  if (typeof renderTable === "function") renderTable();
 };
 </script>
 
