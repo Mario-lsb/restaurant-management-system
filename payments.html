@@ -1,212 +1,162 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Payments — RMS</title>
   <link rel="stylesheet" href="css/styles.css"/>
 </head>
 <body>
-  <div id="app">
-    <!-- Sidebar injected by Person 1's layout -->
-    <div id="sidebar-placeholder"></div>
+  <header class="navbar">
+    <div class="navbar-left">
+      <button class="hamburger" id="hamburger">&#9776;</button>
+      <div class="nav-logo">🍽️ Restaurant Manager</div>
+    </div>
+    <div class="nav-title">Payments</div>
+    <div class="nav-clock" id="live-clock"></div>
+  </header>
 
-    <main class="page-content">
-      <div class="page-header">
-        <h1>Payments</h1>
-        <button class="btn btn-primary" onclick="openPaymentModal()">+ Process Payment</button>
-      </div>
+  <aside class="sidebar" id="sidebar">
+    <a href="index.html">🏠 Dashboard</a>
+    <a href="customers.html">👥 Customers</a>
+    <a href="menu.html">🍽️ Menu</a>
+    <a href="order.html">📋 Orders</a>
+    <a href="inventory.html">📦 Inventory</a>
+    <a href="payments.html" class="active">💳 Payments</a>
+    <a href="staff.html">👨‍💼 Staff</a>
+    <a href="feedback.html">💬 Feedback</a>
+    <a href="reports.html">📊 Reports</a>
+  </aside>
 
-      <!-- Stats row -->
-      <div class="stats-row" id="payment-stats"></div>
+  <main class="main-content">
+    <div class="page-header">
+      <h2>Payments</h2>
+      <button class="btn-primary" id="open-payment-modal">+ Process Payment</button>
+    </div>
 
-      <!-- Revenue by mode chart placeholder -->
-      <div class="card">
-        <div class="card-header">Revenue by Payment Mode</div>
-        <div class="card-body">
-          <canvas id="revenueChart" height="80"></canvas>
-        </div>
-      </div>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>#</th><th>Order ID</th><th>Customer</th>
+            <th>Amount</th><th>Method</th><th>Status</th><th>Date</th>
+          </tr>
+        </thead>
+        <tbody id="payments-tbody"></tbody>
+      </table>
+    </div>
+  </main>
 
-      <!-- Payments table -->
-      <div class="card">
-        <div class="card-header">All Payments</div>
-        <div class="card-body">
-          <table class="data-table" id="payments-table">
-            <thead>
-              <tr>
-                <th>#</th><th>Order ID</th><th>Customer</th>
-                <th>Amount</th><th>Mode</th><th>Date</th>
-              </tr>
-            </thead>
-            <tbody id="payments-tbody"></tbody>
-          </table>
-        </div>
-      </div>
-    </main>
-  </div>
-
-  <!-- Process Payment Modal -->
   <div class="modal-overlay" id="payment-modal">
-    <div class="modal">
-      <div class="modal-header">
-        <h2>Process Payment</h2>
-        <button class="modal-close" onclick="closePaymentModal()">×</button>
-      </div>
-      <div class="modal-body">
+    <div class="modal-box">
+      <button class="modal-close" id="close-payment-modal">&times;</button>
+      <h3 class="section-title">Process Payment</h3>
+      <form id="payment-form">
         <div class="form-group">
-          <label>Order ID</label>
-          <select id="pay-order-id">
-            <option value="">— Select unpaid order —</option>
-          </select>
-        </div>
-        <div class="form-group" id="order-summary-box" style="display:none">
-          <label>Order Summary</label>
-          <div id="order-summary-content" class="info-box"></div>
+          <label class="form-label">Order ID</label>
+          <select class="form-input" id="pay-order-id"></select>
         </div>
         <div class="form-group">
-          <label>Payment Mode</label>
-          <select id="pay-mode">
-            <option value="Cash">Cash</option>
-            <option value="UPI">UPI</option>
-            <option value="Card">Card</option>
-            <option value="Online">Online</option>
+          <label class="form-label">Amount (₹)</label>
+          <input class="form-input" type="number" id="pay-amount" min="1" required/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Payment Method</label>
+          <select class="form-input" id="pay-method">
+            <option value="cash">Cash</option>
+            <option value="card">Card</option>
+            <option value="upi">UPI</option>
           </select>
         </div>
-        <div id="pay-error" class="error-msg"></div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-secondary" onclick="closePaymentModal()">Cancel</button>
-        <button class="btn btn-primary" onclick="submitPayment()">Confirm Payment</button>
-      </div>
+        <button class="btn-success" type="submit">Confirm Payment</button>
+      </form>
     </div>
   </div>
 
   <div id="toast"></div>
 
-  <script src="js/data.js"></script>
-  <script src="js/app.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script>
-    let revenueChart = null;
+    const API = 'http://localhost:5000/api';
 
-    function renderStats() {
-      const stats = Reports.getDashboardStats();
-      document.getElementById("payment-stats").innerHTML = `
-        <div class="stat-card">
-          <div class="stat-label">Total Revenue</div>
-          <div class="stat-value">${Utils.formatCurrency(stats.total_revenue)}</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Avg Order Value</div>
-          <div class="stat-value">${Utils.formatCurrency(stats.avg_order_value)}</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Payments Recorded</div>
-          <div class="stat-value">${Payments.getAll().length}</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Unpaid Orders</div>
-          <div class="stat-value">${stats.pending_orders}</div>
-        </div>
-      `;
+    function setupSidebar() {
+      document.getElementById("hamburger").addEventListener("click", () =>
+        document.getElementById("sidebar").classList.toggle("open"));
     }
 
-    function renderTable() {
+    function setupClock() {
+      const clock = document.getElementById("live-clock");
+      const tick = () => { clock.textContent = new Date().toLocaleTimeString("en-IN"); };
+      tick(); setInterval(tick, 1000);
+    }
+
+    function showToast(message, type = 'success') {
+      const toast = document.getElementById("toast");
+      toast.textContent = message;
+      toast.style.background = type === 'success' ? '#28a745' : '#dc3545';
+      toast.style.display = 'block';
+      setTimeout(() => toast.style.display = 'none', 3000);
+    }
+
+    async function loadPayments() {
+      const res = await fetch(`${API}/payments`);
+      const payments = await res.json();
       const tbody = document.getElementById("payments-tbody");
-      const allOrders = Orders.getFullList();
-      const payments = Payments.getAll().map(p => {
-        const order = Orders.getById(p.order_id);
-        const customer = order ? Customers.getById(order.customer_id) : null;
-        return { ...p, customer_name: customer?.name || "—" };
-      });
       tbody.innerHTML = payments.length ? payments.map((p, i) => `
         <tr>
           <td>${i + 1}</td>
           <td>#${p.order_id}</td>
-          <td>${p.customer_name}</td>
-          <td>${Utils.formatCurrency(p.amount)}</td>
-          <td><span class="badge badge-info">${p.payment_mode}</span></td>
-          <td>${Utils.formatDateTime(p.payment_date)}</td>
+          <td>${p.customer_name || '-'}</td>
+          <td>₹${p.amount}</td>
+          <td><span class="badge badge-info">${p.payment_method}</span></td>
+          <td><span class="badge ${p.payment_status === 'completed' ? 'badge-success' : 'badge-warning'}">${p.payment_status}</span></td>
+          <td>${new Date(p.payment_date).toLocaleDateString('en-IN')}</td>
         </tr>
-      `).join("") : `<tr><td colspan="6" class="empty-state">No payments recorded yet.</td></tr>`;
+      `).join("") : `<tr><td colspan="7" style="text-align:center">No payments yet.</td></tr>`;
     }
 
-    function renderChart() {
-      const data = Payments.getRevenueByMode();
-      const ctx = document.getElementById("revenueChart").getContext("2d");
-      if (revenueChart) revenueChart.destroy();
-      revenueChart = new Chart(ctx, {
-        type: "bar",
-        data: {
-          labels: data.map(d => d.mode),
-          datasets: [{
-            label: "Revenue (₹)",
-            data: data.map(d => d.revenue),
-            backgroundColor: ["#c8a96e","#3d6b4f","#8b4513","#2c4a6e","#6b3d6b"],
-            borderRadius: 6,
-          }]
-        },
-        options: {
-          responsive: true,
-          plugins: { legend: { display: false } },
-          scales: { y: { beginAtZero: true } }
-        }
+    async function loadOrders() {
+      const res = await fetch(`${API}/orders`);
+      const orders = await res.json();
+      const pending = orders.filter(o => o.status === 'Pending');
+      document.getElementById("pay-order-id").innerHTML =
+        pending.map(o => `<option value="${o.id}">#${o.id} - ${o.customer_name || 'Unknown'}</option>`).join("");
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      setupSidebar();
+      setupClock();
+      loadPayments();
+
+      document.getElementById("open-payment-modal").addEventListener("click", () => {
+        loadOrders();
+        document.getElementById("payment-modal").classList.add("show");
       });
-    }
+      document.getElementById("close-payment-modal").addEventListener("click", () => {
+        document.getElementById("payment-modal").classList.remove("show");
+        document.getElementById("payment-form").reset();
+      });
 
-    function openPaymentModal() {
-      const unpaidOrders = Orders.getAll().filter(o =>
-        o.status === "Pending" && !Payments.getByOrderId(o.order_id)
-      );
-      const sel = document.getElementById("pay-order-id");
-      sel.innerHTML = `<option value="">— Select unpaid order —</option>` +
-        unpaidOrders.map(o => {
-          const c = Customers.getById(o.customer_id);
-          return `<option value="${o.order_id}">#${o.order_id} — ${c?.name} (${o.order_type})</option>`;
-        }).join("");
-      document.getElementById("order-summary-box").style.display = "none";
-      document.getElementById("pay-error").textContent = "";
-      document.getElementById("payment-modal").classList.add("active");
-    }
-
-    function closePaymentModal() {
-      document.getElementById("payment-modal").classList.remove("active");
-    }
-
-    document.getElementById("pay-order-id").addEventListener("change", function () {
-      const order_id = parseInt(this.value);
-      const box = document.getElementById("order-summary-box");
-      if (!order_id) { box.style.display = "none"; return; }
-      const details = Orders.getDetails(order_id);
-      document.getElementById("order-summary-content").innerHTML = `
-        <p><strong>Items:</strong> ${details.items.map(i => `${i.item_name} ×${i.quantity}`).join(", ")}</p>
-        <p><strong>Total:</strong> ${Utils.formatCurrency(details.total)}</p>
-      `;
-      box.style.display = "block";
+      document.getElementById("payment-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const payment = {
+          order_id: document.getElementById("pay-order-id").value,
+          amount: document.getElementById("pay-amount").value,
+          payment_method: document.getElementById("pay-method").value,
+          payment_status: 'completed'
+        };
+        const res = await fetch(`${API}/payments`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payment)
+        });
+        const data = await res.json();
+        if (data.error) { showToast(data.error, 'error'); return; }
+        showToast('Payment recorded!');
+        document.getElementById("payment-modal").classList.remove("show");
+        document.getElementById("payment-form").reset();
+        loadPayments();
+      });
     });
-
-    function submitPayment() {
-      const order_id    = parseInt(document.getElementById("pay-order-id").value);
-      const payment_mode = document.getElementById("pay-mode").value;
-      const errEl = document.getElementById("pay-error");
-      try {
-        Payments.process({ order_id, payment_mode });
-        closePaymentModal();
-        renderAll();
-        Utils.showSuccess("Payment processed successfully!");
-      } catch (e) {
-        errEl.textContent = e.message;
-      }
-    }
-
-    function renderAll() {
-      renderStats();
-      renderTable();
-      renderChart();
-    }
-
-    renderAll();
   </script>
 </body>
 </html>

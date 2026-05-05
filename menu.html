@@ -1,15 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Menu Management</title>
-  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/styles.css"/>
 </head>
 <body>
   <header class="navbar">
     <div class="navbar-left">
-      <button class="hamburger" id="hamburger">☰</button>
+      <button class="hamburger" id="hamburger">&#9776;</button>
       <div class="nav-logo">🍽️ Restaurant Manager</div>
     </div>
     <div class="nav-title">Menu Management</div>
@@ -46,12 +46,8 @@
       <table class="data-table">
         <thead>
           <tr>
-            <th>ID</th>
-            <th>Name</th>
-            <th>Category</th>
-            <th>Price</th>
-            <th>Availability</th>
-            <th>Actions</th>
+            <th>ID</th><th>Name</th><th>Category</th>
+            <th>Price</th><th>Available</th><th>Actions</th>
           </tr>
         </thead>
         <tbody id="menu-table-body"></tbody>
@@ -61,20 +57,29 @@
 
   <div class="modal-overlay" id="item-modal">
     <div class="modal-box">
-      <button class="modal-close" id="close-item-modal">×</button>
+      <button class="modal-close" id="close-item-modal">&times;</button>
       <h3 class="section-title">Add Menu Item</h3>
       <form id="item-form">
         <div class="form-group">
-          <label class="form-label" for="item-name">Item Name</label>
-          <input class="form-input" id="item-name" required />
+          <label class="form-label">Item Name</label>
+          <input class="form-input" id="item-name" required/>
         </div>
         <div class="form-group">
-          <label class="form-label" for="item-category">Category</label>
-          <input class="form-input" id="item-category" required />
+          <label class="form-label">Category</label>
+          <select class="form-input" id="item-category">
+            <option>Starters</option>
+            <option>Mains</option>
+            <option>Desserts</option>
+            <option>Drinks</option>
+          </select>
         </div>
         <div class="form-group">
-          <label class="form-label" for="item-price">Price</label>
-          <input class="form-input" id="item-price" type="number" min="1" step="0.01" required />
+          <label class="form-label">Price (₹)</label>
+          <input class="form-input" type="number" id="item-price" min="1" step="0.01" required/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Description</label>
+          <input class="form-input" id="item-description"/>
         </div>
         <button class="btn-success" type="submit">Save Item</button>
       </form>
@@ -84,96 +89,99 @@
   <div id="toast"></div>
 
   <script>
+    const API = 'http://localhost:5000/api';
+    let allItems = [];
+
     function setupSidebar() {
-      const button = document.getElementById("hamburger");
-      const sidebar = document.getElementById("sidebar");
-      button.addEventListener("click", () => sidebar.classList.toggle("open"));
+      document.getElementById("hamburger").addEventListener("click", () =>
+        document.getElementById("sidebar").classList.toggle("open"));
     }
 
     function setupClock() {
       const clock = document.getElementById("live-clock");
-      const tick = () => {
-        clock.textContent = new Date().toLocaleTimeString("en-IN");
-      };
-      tick();
-      setInterval(tick, 1000);
+      const tick = () => { clock.textContent = new Date().toLocaleTimeString("en-IN"); };
+      tick(); setInterval(tick, 1000);
     }
 
-    const categoryMap = {
-      Starters: ["Starter", "Starters", "Breakfast", "Breads", "Appetizers"],
-      Mains: ["Main", "Mains", "Main Course"],
-      Desserts: ["Dessert", "Desserts"],
-      Drinks: ["Drink", "Drinks", "Beverages"]
-    };
-
-    function filterByCategory(category) {
-      const allItems = Menu.getAll();
-      if (category === "All") return allItems;
-      return allItems.filter((item) => (categoryMap[category] || []).includes(item.category));
+    function showToast(message, type = 'success') {
+      const toast = document.getElementById("toast");
+      toast.textContent = message;
+      toast.style.background = type === 'success' ? '#28a745' : '#dc3545';
+      toast.style.display = 'block';
+      setTimeout(() => toast.style.display = 'none', 3000);
     }
 
-    function renderMenu(rows) {
+    async function loadMenu() {
+      const res = await fetch(`${API}/menu`);
+      allItems = await res.json();
+      renderMenu(allItems);
+    }
+
+    function renderMenu(items) {
       const body = document.getElementById("menu-table-body");
-      body.innerHTML = rows.map((item) => `
+      body.innerHTML = items.length ? items.map(item => `
         <tr>
-          <td>${item.item_id}</td>
-          <td>${item.item_name}</td>
+          <td>${item.id}</td>
+          <td>${item.name}</td>
           <td>${item.category}</td>
-          <td>${Utils.formatCurrency(item.price)}</td>
-          <td><span class="badge badge-success">Available</span></td>
-          <td><button class="btn-danger" disabled>Delete</button></td>
+          <td>₹${item.price}</td>
+          <td><span class="badge ${item.is_available ? 'badge-success' : 'badge-danger'}">
+            ${item.is_available ? 'Available' : 'Unavailable'}</span></td>
+          <td><button class="btn-danger" onclick="deleteItem(${item.id})">Delete</button></td>
         </tr>
-      `).join("");
+      `).join("") : `<tr><td colspan="6" style="text-align:center">No items found.</td></tr>`;
     }
 
-    function openItemModal() {
-      document.getElementById("item-modal").classList.add("show");
-    }
-
-    function closeItemModal() {
-      document.getElementById("item-modal").classList.remove("show");
-      document.getElementById("item-form").reset();
+    async function deleteItem(id) {
+      if (!confirm('Delete this menu item?')) return;
+      await fetch(`${API}/menu/${id}`, { method: 'DELETE' });
+      showToast('Item deleted!');
+      loadMenu();
     }
 
     document.addEventListener("DOMContentLoaded", () => {
       setupSidebar();
       setupClock();
-      renderMenu(Menu.getAll());
+      loadMenu();
 
-      document.querySelectorAll(".filter-btn").forEach((button) => {
-        button.addEventListener("click", () => {
-          document.querySelectorAll(".filter-btn").forEach((item) => item.classList.remove("active"));
-          button.classList.add("active");
-          renderMenu(filterByCategory(button.dataset.category));
+      document.querySelectorAll(".filter-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+          btn.classList.add("active");
+          const cat = btn.dataset.category;
+          renderMenu(cat === 'All' ? allItems : allItems.filter(i => i.category === cat));
         });
       });
 
-      document.getElementById("open-item-modal").addEventListener("click", openItemModal);
-      document.getElementById("close-item-modal").addEventListener("click", closeItemModal);
-      document.getElementById("item-modal").addEventListener("click", (event) => {
-        if (event.target.id === "item-modal") {
-          closeItemModal();
-        }
+      document.getElementById("open-item-modal").addEventListener("click", () =>
+        document.getElementById("item-modal").classList.add("show"));
+      document.getElementById("close-item-modal").addEventListener("click", () => {
+        document.getElementById("item-modal").classList.remove("show");
+        document.getElementById("item-form").reset();
       });
 
-      document.getElementById("item-form").addEventListener("submit", (event) => {
-        event.preventDefault();
-        try {
-          Menu.add({
-            item_name: document.getElementById("item-name").value.trim(),
-            category: document.getElementById("item-category").value.trim(),
-            price: document.getElementById("item-price").value
-          });
-          renderMenu(Menu.getAll());
-          closeItemModal();
-          Utils.showSuccess("Item added!");
-        } catch (error) {
-          Utils.showError(error.message);
-        }
+      document.getElementById("item-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const item = {
+          name: document.getElementById("item-name").value.trim(),
+          category: document.getElementById("item-category").value,
+          price: document.getElementById("item-price").value,
+          description: document.getElementById("item-description").value.trim(),
+          is_available: 1
+        };
+        const res = await fetch(`${API}/menu`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(item)
+        });
+        const data = await res.json();
+        if (data.error) { showToast(data.error, 'error'); return; }
+        showToast('Menu item added!');
+        document.getElementById("item-modal").classList.remove("show");
+        document.getElementById("item-form").reset();
+        loadMenu();
       });
     });
   </script>
-  <script src="js/data.js"></script>
-  <script src="js/app.js"></script>
 </body>
 </html>

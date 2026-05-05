@@ -7,134 +7,184 @@
   <link rel="stylesheet" href="css/styles.css"/>
 </head>
 <body>
-  <div id="app">
-    <div id="sidebar-placeholder"></div>
-    <main class="page-content">
-      <div class="page-header">
-        <h1>Staff</h1>
-        <button class="btn btn-primary" onclick="openAddModal()">+ Add Staff</button>
-      </div>
+  <header class="navbar">
+    <div class="navbar-left">
+      <button class="hamburger" id="hamburger">&#9776;</button>
+      <div class="nav-logo">🍽️ Restaurant Manager</div>
+    </div>
+    <div class="nav-title">Staff Management</div>
+    <div class="nav-clock" id="live-clock"></div>
+  </header>
 
-      <!-- Filter by role -->
-      <div class="filter-bar">
-        <label>Filter by Role:</label>
-        <select id="role-filter" onchange="renderTable()">
-          <option value="">All Roles</option>
-          <option>Manager</option>
-          <option>Waiter</option>
-          <option>Chef</option>
-          <option>Cashier</option>
-        </select>
-      </div>
+  <aside class="sidebar" id="sidebar">
+    <a href="index.html">🏠 Dashboard</a>
+    <a href="customers.html">👥 Customers</a>
+    <a href="menu.html">🍽️ Menu</a>
+    <a href="order.html">📋 Orders</a>
+    <a href="inventory.html">📦 Inventory</a>
+    <a href="payments.html">💳 Payments</a>
+    <a href="staff.html" class="active">👨‍💼 Staff</a>
+    <a href="feedback.html">💬 Feedback</a>
+    <a href="reports.html">📊 Reports</a>
+  </aside>
 
-      <div class="card">
-        <div class="card-body">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>#</th><th>Name</th><th>Role</th>
-                <th>Salary</th><th>Phone</th><th>Actions</th>
-              </tr>
-            </thead>
-            <tbody id="staff-tbody"></tbody>
-          </table>
-        </div>
-      </div>
-    </main>
-  </div>
+  <main class="main-content">
+    <div class="page-header">
+      <h2>Staff</h2>
+      <button class="btn-primary" id="open-staff-modal">+ Add Staff</button>
+    </div>
 
-  <!-- Add Staff Modal -->
+    <div class="filter-bar">
+      <label>Filter by Role:</label>
+      <select id="role-filter">
+        <option value="">All Roles</option>
+        <option>Manager</option>
+        <option>Waiter</option>
+        <option>Chef</option>
+        <option>Cashier</option>
+      </select>
+    </div>
+
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>#</th><th>Name</th><th>Role</th>
+            <th>Salary</th><th>Phone</th><th>Status</th><th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="staff-tbody"></tbody>
+      </table>
+    </div>
+  </main>
+
   <div class="modal-overlay" id="staff-modal">
-    <div class="modal">
-      <div class="modal-header">
-        <h2>Add Staff Member</h2>
-        <button class="modal-close" onclick="closeModal()">×</button>
-      </div>
-      <div class="modal-body">
+    <div class="modal-box">
+      <button class="modal-close" id="close-staff-modal">&times;</button>
+      <h3 class="section-title">Add Staff Member</h3>
+      <form id="staff-form">
         <div class="form-group">
-          <label>Full Name</label>
-          <input type="text" id="staff-name" placeholder="e.g. Ravi Kumar"/>
+          <label class="form-label">Full Name</label>
+          <input class="form-input" id="staff-name" required/>
         </div>
         <div class="form-group">
-          <label>Role</label>
-          <select id="staff-role">
+          <label class="form-label">Role</label>
+          <select class="form-input" id="staff-role">
             <option>Waiter</option><option>Chef</option>
             <option>Manager</option><option>Cashier</option>
           </select>
         </div>
         <div class="form-group">
-          <label>Salary (₹)</label>
-          <input type="number" id="staff-salary" placeholder="e.g. 20000"/>
+          <label class="form-label">Salary (₹)</label>
+          <input class="form-input" type="number" id="staff-salary"/>
         </div>
         <div class="form-group">
-          <label>Phone</label>
-          <input type="tel" id="staff-phone" placeholder="10-digit number"/>
+          <label class="form-label">Phone</label>
+          <input class="form-input" type="tel" id="staff-phone"/>
         </div>
-        <div id="staff-error" class="error-msg"></div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
-        <button class="btn btn-primary" onclick="submitStaff()">Add Staff</button>
-      </div>
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input class="form-input" type="email" id="staff-email"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Joining Date</label>
+          <input class="form-input" type="date" id="staff-joining"/>
+        </div>
+        <button class="btn-success" type="submit">Add Staff</button>
+      </form>
     </div>
   </div>
 
   <div id="toast"></div>
-  <script src="js/data.js"></script>
-  <script src="js/app.js"></script>
+
   <script>
-    function renderTable() {
+    const API = 'http://localhost:5000/api';
+
+    function setupSidebar() {
+      const button = document.getElementById("hamburger");
+      const sidebar = document.getElementById("sidebar");
+      button.addEventListener("click", () => sidebar.classList.toggle("open"));
+    }
+
+    function setupClock() {
+      const clock = document.getElementById("live-clock");
+      const tick = () => { clock.textContent = new Date().toLocaleTimeString("en-IN"); };
+      tick(); setInterval(tick, 1000);
+    }
+
+    function showToast(message, type = 'success') {
+      const toast = document.getElementById("toast");
+      toast.textContent = message;
+      toast.style.background = type === 'success' ? '#28a745' : '#dc3545';
+      toast.style.display = 'block';
+      setTimeout(() => toast.style.display = 'none', 3000);
+    }
+
+    async function loadStaff() {
       const role = document.getElementById("role-filter").value;
-      let data = Staff.getAll();
-      if (role) data = data.filter(s => s.role === role);
+      const res = await fetch(`${API}/staff`);
+      let staff = await res.json();
+      if (role) staff = staff.filter(s => s.role === role);
       const tbody = document.getElementById("staff-tbody");
-      tbody.innerHTML = data.length ? data.map((s, i) => `
+      tbody.innerHTML = staff.length ? staff.map((s, i) => `
         <tr>
           <td>${i + 1}</td>
           <td>${s.name}</td>
           <td><span class="badge badge-info">${s.role}</span></td>
-          <td>${Utils.formatCurrency(s.salary)}</td>
-          <td>${s.phone}</td>
+          <td>₹${s.salary || 0}</td>
+          <td>${s.phone || '-'}</td>
+          <td><span class="badge ${s.status === 'active' ? 'badge-success' : 'badge-danger'}">${s.status}</span></td>
           <td>
-            <button class="btn btn-sm btn-secondary" onclick="editSalary(${s.staff_id}, ${s.salary})">Edit Salary</button>
+            <button class="btn-danger" onclick="deleteStaff(${s.id})">Delete</button>
           </td>
         </tr>
-      `).join("") : `<tr><td colspan="6" class="empty-state">No staff found.</td></tr>`;
+      `).join("") : `<tr><td colspan="7" style="text-align:center">No staff found.</td></tr>`;
     }
 
-    function openAddModal() {
-      document.getElementById("staff-error").textContent = "";
-      ["staff-name","staff-salary","staff-phone"].forEach(id => document.getElementById(id).value = "");
-      document.getElementById("staff-modal").classList.add("active");
-    }
-    function closeModal() { document.getElementById("staff-modal").classList.remove("active"); }
-
-    function submitStaff() {
-      const name   = document.getElementById("staff-name").value.trim();
-      const role   = document.getElementById("staff-role").value;
-      const salary = document.getElementById("staff-salary").value;
-      const phone  = document.getElementById("staff-phone").value.trim();
-      try {
-        Staff.add({ name, role, salary, phone });
-        closeModal();
-        renderTable();
-        Utils.showSuccess("Staff member added!");
-      } catch(e) {
-        document.getElementById("staff-error").textContent = e.message;
-      }
+    async function deleteStaff(id) {
+      if (!confirm('Delete this staff member?')) return;
+      await fetch(`${API}/staff/${id}`, { method: 'DELETE' });
+      showToast('Staff deleted!');
+      loadStaff();
     }
 
-    function editSalary(staff_id, current) {
-      const val = prompt(`New salary for this staff member (current: ₹${current}):`, current);
-      if (val === null) return;
-      const salary = parseFloat(val);
-      if (isNaN(salary) || salary <= 0) { Utils.showError("Invalid salary."); return; }
-      Staff.update(staff_id, { salary });
-      renderTable();
-      Utils.showSuccess("Salary updated!");
-    }
+    document.addEventListener("DOMContentLoaded", () => {
+      setupSidebar();
+      setupClock();
+      loadStaff();
 
-    renderTable();
+      document.getElementById("role-filter").addEventListener("change", loadStaff);
+      document.getElementById("open-staff-modal").addEventListener("click", () => {
+        document.getElementById("staff-modal").classList.add("show");
+      });
+      document.getElementById("close-staff-modal").addEventListener("click", () => {
+        document.getElementById("staff-modal").classList.remove("show");
+        document.getElementById("staff-form").reset();
+      });
+
+      document.getElementById("staff-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const staff = {
+          name: document.getElementById("staff-name").value.trim(),
+          role: document.getElementById("staff-role").value,
+          salary: document.getElementById("staff-salary").value,
+          phone: document.getElementById("staff-phone").value.trim(),
+          email: document.getElementById("staff-email").value.trim(),
+          joining_date: document.getElementById("staff-joining").value
+        };
+        const res = await fetch(`${API}/staff`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(staff)
+        });
+        const data = await res.json();
+        if (data.error) { showToast(data.error, 'error'); return; }
+        showToast('Staff added!');
+        document.getElementById("staff-modal").classList.remove("show");
+        document.getElementById("staff-form").reset();
+        loadStaff();
+      });
+    });
   </script>
 </body>
 </html>
