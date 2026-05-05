@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Inventory Management</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <header class="navbar">
+    <div class="navbar-left">
+      <button class="hamburger" id="hamburger">☰</button>
+      <div class="nav-logo">🍽️Restaurant Manager</div>
+    </div>
+    <div class="nav-title">Inventory Management</div>
+    <div class="nav-clock" id="live-clock"></div>
+  </header>
+
+  <aside class="sidebar" id="sidebar">
+    <a href="index.html">🏠 Dashboard</a>
+    <a href="customers.html">👥 Customers</a>
+    <a href="menu.html">🍽️ Menu</a>
+    <a href="order.html">📋 Orders</a>
+    <a href="inventory.html" class="active">📦 Inventory</a>
+    <a href="payments.html">💳 Payments</a>
+    <a href="staff.html">👨‍💼 Staff</a>
+    <a href="feedback.html">💬 Feedback</a>
+    <a href="reports.html">📊 Reports</a>
+  </aside>
+
+  <main class="main-content">
+    <div class="page-header">
+      <h2>Inventory</h2>
+      <button class="btn-primary" id="open-stock-modal">+ Add Stock</button>
+    </div>
+
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Item Name</th>
+            <th>Supplier</th>
+            <th>Qty</th>
+            <th>Reorder Level</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="inventory-table-body"></tbody>
+      </table>
+    </div>
+  </main>
+
+  <div class="modal-overlay" id="stock-modal">
+    <div class="modal-box">
+      <button class="modal-close" id="close-stock-modal">×</button>
+      <h3 class="section-title">Add Stock</h3>
+      <form id="stock-form">
+        <div class="form-group">
+          <label class="form-label" for="inv-item-name">Item</label>
+          <select class="form-input" id="inv-item-name"></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="inv-supplier">Supplier</label>
+          <input class="form-input" id="inv-supplier" readonly />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="inv-quantity">Quantity to Add</label>
+          <input class="form-input" id="inv-quantity" type="number" min="1" required />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="inv-reorder">Reorder Level</label>
+          <input class="form-input" id="inv-reorder" value="40" />
+        </div>
+        <button class="btn-success" type="submit">Update Stock</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+  <script>
+    function setupSidebar() {
+      const button = document.getElementById("hamburger");
+      const sidebar = document.getElementById("sidebar");
+      button.addEventListener("click", () => sidebar.classList.toggle("open"));
+    }
+
+    function setupClock() {
+      const clock = document.getElementById("live-clock");
+      const tick = () => {
+        clock.textContent = new Date().toLocaleTimeString("en-IN");
+      };
+      tick();
+      setInterval(tick, 1000);
+    }
+
+    function renderInventory() {
+      const body = document.getElementById("inventory-table-body");
+      const rows = Inventory.getWithSupplier();
+      body.innerHTML = rows.map((item) => {
+        const low = item.quantity_available < 40;
+        return `
+          <tr data-qty="${item.quantity_available}" class="${low ? "alert-low-stock" : ""}">
+            <td>${item.ingredient_id}</td>
+            <td>${item.ingredient_name}</td>
+            <td>${item.supplier_name || "—"}</td>
+            <td>${item.quantity_available} ${item.unit}</td>
+            <td>40</td>
+            <td><span class="badge ${low ? "badge-danger" : "badge-success"}">${low ? "Low Stock" : "OK"}</span></td>
+            <td><button class="btn-primary restock-btn" data-id="${item.ingredient_id}">Restock</button></td>
+          </tr>
+        `;
+      }).join("");
+
+      document.querySelectorAll(".restock-btn").forEach((button) => {
+        button.addEventListener("click", () => {
+          document.getElementById("inv-item-name").value = button.dataset.id;
+          syncSupplier();
+          openStockModal();
+        });
+      });
+    }
+
+    function populateItemDropdown() {
+      const select = document.getElementById("inv-item-name");
+      const rows = Inventory.getWithSupplier();
+      select.innerHTML = rows.map((item) => `
+        <option value="${item.ingredient_id}">${item.ingredient_name}</option>
+      `).join("");
+      syncSupplier();
+    }
+
+    function syncSupplier() {
+      const selectedId = parseInt(document.getElementById("inv-item-name").value, 10);
+      const selectedItem = Inventory.getWithSupplier().find((item) => item.ingredient_id === selectedId);
+      document.getElementById("inv-supplier").value = selectedItem ? selectedItem.supplier_name : "";
+    }
+
+    function openStockModal() {
+      document.getElementById("stock-modal").classList.add("show");
+    }
+
+    function closeStockModal() {
+      document.getElementById("stock-modal").classList.remove("show");
+      document.getElementById("stock-form").reset();
+      document.getElementById("inv-reorder").value = "40";
+      syncSupplier();
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      setupSidebar();
+      setupClock();
+      populateItemDropdown();
+      renderInventory();
+
+      document.getElementById("inv-item-name").addEventListener("change", syncSupplier);
+      document.getElementById("open-stock-modal").addEventListener("click", openStockModal);
+      document.getElementById("close-stock-modal").addEventListener("click", closeStockModal);
+      document.getElementById("stock-modal").addEventListener("click", (event) => {
+        if (event.target.id === "stock-modal") {
+          closeStockModal();
+        }
+      });
+
+      document.getElementById("stock-form").addEventListener("submit", (event) => {
+        event.preventDefault();
+        try {
+          const ingredientId = parseInt(document.getElementById("inv-item-name").value, 10);
+          const quantity = parseInt(document.getElementById("inv-quantity").value, 10);
+          Inventory.restock(ingredientId, quantity);
+          renderInventory();
+          closeStockModal();
+          Utils.showSuccess("Stock updated!");
+        } catch (error) {
+          Utils.showError(error.message);
+        }
+      });
+    });
+  </script>
+  <script src="js/data.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

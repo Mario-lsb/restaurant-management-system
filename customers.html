@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Customer Management</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <header class="navbar">
+    <div class="navbar-left">
+      <button class="hamburger" id="hamburger">☰</button>
+      <div class="nav-logo">🍽️ Restaurant Manager</div>
+    </div>
+    <div class="nav-title">Customer Management</div>
+    <div class="nav-clock" id="live-clock"></div>
+  </header>
+
+  <aside class="sidebar" id="sidebar">
+    <a href="index.html">🏠 Dashboard</a>
+    <a href="customers.html" class="active">👥 Customers</a>
+    <a href="menu.html">🍽️ Menu</a>
+    <a href="order.html">📋 Orders</a>
+    <a href="inventory.html">📦 Inventory</a>
+    <a href="payments.html">💳 Payments</a>
+    <a href="staff.html">👨‍💼 Staff</a>
+    <a href="feedback.html">💬 Feedback</a>
+    <a href="reports.html">📊 Reports</a>
+  </aside>
+
+  <main class="main-content">
+    <div class="page-header">
+      <h2>Customers</h2>
+      <button class="btn-primary" id="open-customer-modal">+ Add Customer</button>
+    </div>
+
+    <input class="search-bar" id="customer-search" placeholder="Search by name, phone, email" />
+
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Phone</th>
+            <th>Email</th>
+            <th>Loyalty Tier</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="customer-table-body"></tbody>
+      </table>
+    </div>
+  </main>
+
+  <div class="modal-overlay" id="customer-modal">
+    <div class="modal-box">
+      <button class="modal-close" id="close-customer-modal">×</button>
+      <h3 class="section-title">Add Customer</h3>
+      <form id="customer-form">
+        <div class="form-group">
+          <label class="form-label" for="cust-name">Name</label>
+          <input class="form-input" id="cust-name" required />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="cust-phone">Phone</label>
+          <input class="form-input" id="cust-phone" required />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="cust-email">Email</label>
+          <input class="form-input" id="cust-email" type="email" required />
+        </div>
+        <button class="btn-success" type="submit">Save Customer</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+  <script>
+    function setupSidebar() {
+      const button = document.getElementById("hamburger");
+      const sidebar = document.getElementById("sidebar");
+      button.addEventListener("click", () => sidebar.classList.toggle("open"));
+    }
+
+    function setupClock() {
+      const clock = document.getElementById("live-clock");
+      const tick = () => {
+        clock.textContent = new Date().toLocaleTimeString("en-IN");
+      };
+      tick();
+      setInterval(tick, 1000);
+    }
+
+    function renderCustomers(rows) {
+      const body = document.getElementById("customer-table-body");
+      body.innerHTML = rows.map((customer) => {
+        const tier = Customers.getLoyaltyTier(customer.customer_id);
+        let badgeClass = "badge-danger";
+        if (tier === "Gold") badgeClass = "badge-success";
+        if (tier === "Silver") badgeClass = "badge-warning";
+
+        return `
+          <tr>
+            <td>${customer.customer_id}</td>
+            <td>${customer.name}</td>
+            <td>${customer.phone}</td>
+            <td>${customer.email}</td>
+            <td><span class="badge ${badgeClass}">${tier}</span></td>
+            <td><button class="btn-danger" disabled>Delete</button></td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    function openCustomerModal() {
+      document.getElementById("customer-modal").classList.add("show");
+    }
+
+    function closeCustomerModal() {
+      document.getElementById("customer-modal").classList.remove("show");
+      document.getElementById("customer-form").reset();
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      setupSidebar();
+      setupClock();
+      renderCustomers(Customers.getAll());
+
+      document.getElementById("customer-search").addEventListener("input", (event) => {
+        const query = event.target.value.trim();
+        if (query) {
+          renderCustomers(Customers.search(query));
+        } else {
+          renderCustomers(Customers.getAll());
+        }
+      });
+
+      document.getElementById("open-customer-modal").addEventListener("click", openCustomerModal);
+      document.getElementById("close-customer-modal").addEventListener("click", closeCustomerModal);
+      document.getElementById("customer-modal").addEventListener("click", (event) => {
+        if (event.target.id === "customer-modal") {
+          closeCustomerModal();
+        }
+      });
+
+      document.getElementById("customer-form").addEventListener("submit", (event) => {
+        event.preventDefault();
+        try {
+          Customers.add({
+            name: document.getElementById("cust-name").value.trim(),
+            phone: document.getElementById("cust-phone").value.trim(),
+            email: document.getElementById("cust-email").value.trim()
+          });
+          renderCustomers(Customers.getAll());
+          closeCustomerModal();
+          Utils.showSuccess("Customer added!");
+        } catch (error) {
+          Utils.showError(error.message);
+        }
+      });
+    });
+  </script>
+  <script src="js/data.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

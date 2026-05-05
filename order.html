@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Order Management</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <header class="navbar">
+    <div class="navbar-left">
+      <button class="hamburger" id="hamburger">☰</button>
+      <div class="nav-logo">🍽️ Restaurant Manager</div>
+    </div>
+    <div class="nav-title">Order Management</div>
+    <div class="nav-clock" id="live-clock"></div>
+  </header>
+
+  <aside class="sidebar" id="sidebar">
+    <a href="index.html">🏠 Dashboard</a>
+    <a href="customers.html">👥 Customers</a>
+    <a href="menu.html">🍽️ Menu</a>
+    <a href="order.html" class="active">📋 Orders</a>
+    <a href="inventory.html">📦 Inventory</a>
+    <a href="payments.html">💳 Payments</a>
+    <a href="staff.html">👨‍💼 Staff</a>
+    <a href="feedback.html">💬 Feedback</a>
+    <a href="reports.html">📊 Reports</a>
+  </aside>
+
+  <main class="main-content">
+    <div class="page-header">
+      <h2>Orders</h2>
+      <button class="btn-primary" id="open-order-modal">+ Place Order</button>
+    </div>
+
+    <div class="filter-row">
+      <button class="filter-btn active" data-status="All">All</button>
+      <button class="filter-btn" data-status="Pending">Pending</button>
+      <button class="filter-btn" data-status="Completed">Completed</button>
+      <button class="filter-btn" data-status="Cancelled">Cancelled</button>
+    </div>
+
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Order ID</th>
+            <th>Customer</th>
+            <th>Items</th>
+            <th>Total</th>
+            <th>Status</th>
+            <th>Date</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="orders-table-body"></tbody>
+      </table>
+    </div>
+  </main>
+
+  <div class="modal-overlay" id="order-modal">
+    <div class="modal-box">
+      <button class="modal-close" id="close-order-modal">×</button>
+      <h3 class="section-title">Place Order</h3>
+      <form id="order-form">
+        <div class="form-group">
+          <label class="form-label" for="order-customer">Customer ID</label>
+          <input class="form-input" id="order-customer" type="number" min="1" value="1" required />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="order-items">Items (JSON Array)</label>
+          <input class="form-input" id="order-items" value='[{"item_id":1,"quantity":1}]' required />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="order-amount">Amount (display)</label>
+          <input class="form-input" id="order-amount" value="Calculated by backend" />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="order-status">Status (display)</label>
+          <input class="form-input" id="order-status" value="Pending" />
+        </div>
+        <button class="btn-success" type="submit">Place Order</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+  <script>
+    function setupSidebar() {
+      const button = document.getElementById("hamburger");
+      const sidebar = document.getElementById("sidebar");
+      button.addEventListener("click", () => sidebar.classList.toggle("open"));
+    }
+
+    function setupClock() {
+      const clock = document.getElementById("live-clock");
+      const tick = () => {
+        clock.textContent = new Date().toLocaleTimeString("en-IN");
+      };
+      tick();
+      setInterval(tick, 1000);
+    }
+
+    function getStatusClass(status) {
+      if (status === "Completed") return "badge-success";
+      if (status === "Pending") return "badge-warning";
+      if (status === "Cancelled") return "badge-danger";
+      return "";
+    }
+
+    function getOrdersByStatus(status) {
+      const all = Orders.getFullList();
+      if (status === "All") return all;
+      return all.filter((order) => order.status === status);
+    }
+
+    function renderOrders(rows) {
+      const body = document.getElementById("orders-table-body");
+      body.innerHTML = rows.map((order) => `
+        <tr>
+          <td>${order.order_id}</td>
+          <td>${order.customer_name || "—"}</td>
+          <td>${order.order_type}</td>
+          <td>${order.amount ? Utils.formatCurrency(order.amount) : "Unpaid"}</td>
+          <td><span class="badge ${getStatusClass(order.status)}">${order.status}</span></td>
+          <td>${Utils.formatDate(order.order_date)}</td>
+          <td>
+            ${
+              order.status === "Pending"
+                ? `<button class="btn-success complete-btn" data-id="${order.order_id}">Complete</button>`
+                : `<button class="btn-success" disabled>Complete</button>`
+            }
+          </td>
+        </tr>
+      `).join("");
+
+      document.querySelectorAll(".complete-btn").forEach((button) => {
+        button.addEventListener("click", () => {
+          try {
+            Orders.updateStatus(parseInt(button.dataset.id, 10), "Completed");
+            const activeStatus = document.querySelector(".filter-btn.active").dataset.status;
+            renderOrders(getOrdersByStatus(activeStatus));
+            Utils.showSuccess("Order completed!");
+          } catch (error) {
+            Utils.showError(error.message);
+          }
+        });
+      });
+    }
+
+    function openOrderModal() {
+      document.getElementById("order-modal").classList.add("show");
+    }
+
+    function closeOrderModal() {
+      document.getElementById("order-modal").classList.remove("show");
+      document.getElementById("order-form").reset();
+      document.getElementById("order-customer").value = "1";
+      document.getElementById("order-items").value = '[{"item_id":1,"quantity":1}]';
+      document.getElementById("order-amount").value = "Calculated by backend";
+      document.getElementById("order-status").value = "Pending";
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      setupSidebar();
+      setupClock();
+      renderOrders(getOrdersByStatus("All"));
+
+      document.querySelectorAll(".filter-btn").forEach((button) => {
+        button.addEventListener("click", () => {
+          document.querySelectorAll(".filter-btn").forEach((item) => item.classList.remove("active"));
+          button.classList.add("active");
+          renderOrders(getOrdersByStatus(button.dataset.status));
+        });
+      });
+
+      document.getElementById("open-order-modal").addEventListener("click", openOrderModal);
+      document.getElementById("close-order-modal").addEventListener("click", closeOrderModal);
+      document.getElementById("order-modal").addEventListener("click", (event) => {
+        if (event.target.id === "order-modal") {
+          closeOrderModal();
+        }
+      });
+
+      document.getElementById("order-form").addEventListener("submit", (event) => {
+        event.preventDefault();
+        try {
+          const items = JSON.parse(document.getElementById("order-items").value.trim());
+          Orders.place({
+            customer_id: parseInt(document.getElementById("order-customer").value, 10) || 1,
+            staff_id: 1,
+            order_type: "Dine-In",
+            items: items
+          });
+          const activeStatus = document.querySelector(".filter-btn.active").dataset.status;
+          renderOrders(getOrdersByStatus(activeStatus));
+          closeOrderModal();
+          Utils.showSuccess("Order placed!");
+        } catch (error) {
+          Utils.showError(error.message || "Invalid order data.");
+        }
+      });
+    });
+  </script>
+  <script src="js/data.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
