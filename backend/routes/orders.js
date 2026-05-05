@@ -37,7 +37,7 @@ router.get('/:id', (req, res) => {
 router.post('/', (req, res) => {
     const { customer_id, staff_id, total_amount, order_type, status } = req.body;
     db.query('INSERT INTO orders (customer_id, staff_id, total_amount, order_type, status) VALUES (?, ?, ?, ?, ?)',
-        [customer_id, staff_id, total_amount, order_type, status || 'Pending'], (err, results) => {
+        [customer_id, staff_id, total_amount, order_type, status || 'pending'], (err, results) => {
             if (err) return res.status(500).json({ error: err.message });
             res.json({ message: 'Order created!', id: results.insertId });
         });

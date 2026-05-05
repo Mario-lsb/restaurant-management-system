@@ -1,4 +1,4 @@
-// ============================================================
+g// ============================================================
 //  app.js  —  Business Logic for Restaurant Management System
 //  Person 2 owns this file.
 //  All functions return plain objects/arrays — UI rendering
